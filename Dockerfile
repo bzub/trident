@@ -1,23 +1,31 @@
 ARG ARCH=amd64
 
-FROM --platform=linux/${ARCH} alpine:latest AS baseimage
+# FROM --platform=linux/${ARCH} alpine:latest AS baseimage
+#
+# # install target certs to avoid MITM SSL errors due to zscaler
+# ARG TGT_CA_BUNDLE_PATH=/usr/local/share/ca-certificates/tgt-ca-bundle.crt
+# ADD http://browserconfig.target.com/tgt-certs/tgt-ca-bundle.crt $TGT_CA_BUNDLE_PATH
+#
+# # manually add certificate to certs for initial apk add run
+# RUN cat $TGT_CA_BUNDLE_PATH >> /etc/ssl/certs/ca-certificates.crt
+#
+# RUN apk add nfs-utils
+#
+# #Get the mount.nfs4 dependency
+# RUN ldd /sbin/mount.nfs4 | tr -s '[:space:]' '\n' | grep '^/' | xargs -I % sh -c 'mkdir -p /nfs-deps/$(dirname %) && cp -L % /nfs-deps/%'
+# RUN ldd /sbin/mount.nfs | tr -s '[:space:]' '\n' | grep '^/' | xargs -I % sh -c 'mkdir -p /nfs-deps/$(dirname %) && cp -r -u -L % /nfs-deps/%'
 
-RUN apk add nfs-utils
-
-#Get the mount.nfs4 dependency
-RUN ldd /sbin/mount.nfs4 | tr -s '[:space:]' '\n' | grep '^/' | xargs -I % sh -c 'mkdir -p /nfs-deps/$(dirname %) && cp -L % /nfs-deps/%'
-RUN ldd /sbin/mount.nfs | tr -s '[:space:]' '\n' | grep '^/' | xargs -I % sh -c 'mkdir -p /nfs-deps/$(dirname %) && cp -r -u -L % /nfs-deps/%'
-
-FROM --platform=linux/${ARCH} gcr.io/distroless/static@sha256:69830f29ed7545c762777507426a412f97dad3d8d32bae3e74ad3fb6160917ea
+FROM --platform=linux/${ARCH} hub.docker.target.com/library/debian:latest
+RUN apt update && apt-get --no-install-recommends install -y nfs-common netbase
 
 LABEL maintainers="The NetApp Trident Team" \
       app="trident.netapp.io" \
       description="Trident Storage Orchestrator"
 
-COPY --from=baseimage /bin/mount /bin/umount /bin/
-COPY --from=baseimage /sbin/mount.nfs /sbin/mount.nfs4 /sbin/
-COPY --from=baseimage /etc/netconfig /etc/
-COPY --from=baseimage /nfs-deps/ /
+# COPY --from=baseimage /bin/mount /bin/umount /bin/
+# COPY --from=baseimage /sbin/mount.nfs /sbin/mount.nfs4 /sbin/
+# COPY --from=baseimage /etc/netconfig /etc/
+# COPY --from=baseimage /nfs-deps/ /nfs-deps
 
 ARG BIN=trident_orchestrator
 ARG CLI_BIN=tridentctl

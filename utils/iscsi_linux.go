@@ -16,14 +16,15 @@ func ISCSIActiveOnHost(ctx context.Context, host models.HostSystem) (bool, error
 	Logc(ctx).Debug(">>>> iscsi_linux.ISCSIActiveOnHost")
 	defer Logc(ctx).Debug("<<<< iscsi_linux.ISCSIActiveOnHost")
 
-	var serviceName string
+	return true, nil
+	// var serviceName string
+	//
+	// switch host.OS.Distro {
+	// case Ubuntu, Debian:
+	// 	serviceName = "open-iscsi"
+	// default:
+	// 	serviceName = "iscsid"
+	// }
 
-	switch host.OS.Distro {
-	case Ubuntu, Debian:
-		serviceName = "open-iscsi"
-	default:
-		serviceName = "iscsid"
-	}
-
-	return ServiceActiveOnHost(ctx, serviceName)
+	// return ServiceActiveOnHost(ctx, serviceName)
 }

@@ -204,7 +204,7 @@ func mountNFSPath(ctx context.Context, exportPath, mountpoint, options string) (
 	}
 
 	// Create the mount point dir if necessary
-	if _, err = command.Execute(ctx, "mkdir", "-p", mountpoint); err != nil {
+	if err := os.MkdirAll(mountpoint, 0777); err != nil {
 		Logc(ctx).WithField("error", err).Warning("Mkdir failed.")
 	}
 

@@ -64,7 +64,7 @@ func GetInitiatorIqns(ctx context.Context) ([]string, error) {
 	Logc(ctx).Debug(">>>> iscsi.GetInitiatorIqns")
 	defer Logc(ctx).Debug("<<<< iscsi.GetInitiatorIqns")
 
-	out, err := command.Execute(ctx, "cat", "/etc/iscsi/initiatorname.iscsi")
+	out, err := os.ReadFile("/host/etc/iscsi/initiatorname.iscsi")
 	if err != nil {
 		Logc(ctx).WithField("Error", err).Warn("Could not read initiatorname.iscsi; perhaps iSCSI is not installed?")
 		return nil, err

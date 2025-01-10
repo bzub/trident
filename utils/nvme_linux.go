@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -20,7 +21,7 @@ func GetHostNqn(ctx context.Context) (string, error) {
 	Logc(ctx).Debug(">>>> nvme_linux.GetHostNqn")
 	defer Logc(ctx).Debug("<<<< nvme_linux.GetHostNqn")
 
-	out, err := command.Execute(ctx, "cat", "/etc/nvme/hostnqn")
+	out, err := os.ReadFile("/etc/nvme/hostnqn")
 	if err != nil {
 		Logc(ctx).WithField("Error", err).Warn("Could not read hostnqn; perhaps NVMe is not installed?")
 		return "", fmt.Errorf("failed to get hostnqn: %v", err)
@@ -41,7 +42,7 @@ func NVMeActiveOnHost(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to get hostnqn: %v", err)
 	}
 
-	out, err := command.ExecuteWithTimeout(ctx, "lsmod", NVMeListCmdTimeoutInSeconds*time.Second, false)
+	out, err := os.ReadFile("/proc/modules")
 	if err != nil {
 		Logc(ctx).WithField("Error", err).Warn("Could not read the modules loaded on the host")
 		return false, fmt.Errorf("failed to get nvme driver info")
