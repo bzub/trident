@@ -11,7 +11,6 @@ import (
 	"time"
 
 	. "github.com/netapp/trident/logging"
-	sa "github.com/netapp/trident/storage_attribute"
 )
 
 var transport = "tcp"
@@ -21,10 +20,25 @@ func GetHostNqn(ctx context.Context) (string, error) {
 	Logc(ctx).Debug(">>>> nvme_linux.GetHostNqn")
 	defer Logc(ctx).Debug("<<<< nvme_linux.GetHostNqn")
 
-	out, err := os.ReadFile("/etc/nvme/hostnqn")
+	out, err := os.ReadFile("/host/etc/nvme/hostnqn")
 	if err != nil {
 		Logc(ctx).WithField("Error", err).Warn("Could not read hostnqn; perhaps NVMe is not installed?")
 		return "", fmt.Errorf("failed to get hostnqn: %v", err)
+	}
+
+	newout := strings.Split(string(out), "\n")
+	return newout[0], nil
+}
+
+// GetHostID returns the hostid string of the k8s node.
+func GetHostID(ctx context.Context) (string, error) {
+	Logc(ctx).Debug(">>>> nvme_linux.GetHostID")
+	defer Logc(ctx).Debug("<<<< nvme_linux.GetHostID")
+
+	out, err := os.ReadFile("/host/etc/nvme/hostid")
+	if err != nil {
+		Logc(ctx).WithField("Error", err).Warn("Could not read hostid; perhaps NVMe is not installed?")
+		return "", fmt.Errorf("failed to get hostid: %v", err)
 	}
 
 	newout := strings.Split(string(out), "\n")
@@ -42,18 +56,12 @@ func NVMeActiveOnHost(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to get hostnqn: %v", err)
 	}
 
-	out, err := os.ReadFile("/proc/modules")
+	_, err = os.ReadDir("/sys/class/nvme-fabrics")
 	if err != nil {
-		Logc(ctx).WithField("Error", err).Warn("Could not read the modules loaded on the host")
-		return false, fmt.Errorf("failed to get nvme driver info")
+		Logc(ctx).WithField("Error", err).Warn("Directory /sys/class/nvme-fabrics not found")
+		return false, fmt.Errorf("failed to find the /sys/class/nvme-fabrics directory")
 	}
-	newout := strings.Split(string(out), "\n")
-	for _, s := range newout {
-		if strings.Contains(s, fmt.Sprintf("%s_%s", sa.NVMe, transport)) {
-			return true, nil
-		}
-	}
-	return false, fmt.Errorf("NVMe driver is not loaded on the host")
+	return true, nil
 }
 
 // GetNVMeSubsystemList returns the list of subsystems connected to the k8s node.
@@ -98,9 +106,19 @@ func ConnectSubsystemToHost(ctx context.Context, subsNqn, IP string) error {
 	Logc(ctx).Debug(">>>> nvme_linux.ConnectSubsystemToHost")
 	defer Logc(ctx).Debug("<<<< nvme_linux.ConnectSubsystemToHost")
 
+	nqn, err := GetHostNqn(ctx)
+	if err != nil {
+		return err
+	}
+
+	hostid, err := GetHostID(ctx)
+	if err != nil {
+		return err
+	}
+
 	// Specifying value of "l" (ctrl-loss-tmo) to -1 makes the NVMe session undroppable even if the IP goes down for infinity.
-	_, err := command.Execute(ctx, "nvme", "connect", "-t", "tcp", "-n", subsNqn, "-a", IP,
-		"-s", "4420", "-l", "-1")
+	_, err = command.Execute(ctx, "nvme", "connect", "-t", "tcp", "-n", subsNqn, "-a", IP,
+		"-s", "4420", "-l", "-1", "--hostnqn", nqn, "--hostid", hostid)
 	if err != nil {
 		Logc(ctx).WithField("Error", err).Errorf("Failed to connect subsystem to host: %v", err)
 		return fmt.Errorf("failed to connect subsystem %s to %s: %v", subsNqn, IP, err)
